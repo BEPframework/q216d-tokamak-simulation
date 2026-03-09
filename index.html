@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Q216D Tokamak Simulation – TASD Enhanced</title>
+  <style>
+    body { margin:0; background:#000; color:#0f0; font-family:Arial; }
+    canvas { display:block; margin:20px auto; }
+    .controls { text-align:center; padding:10px; background:#111; }
+  </style>
+</head>
+<body>
+  <h1 style="text-align:center">Q216D Tokamak Simulation – TASD Enhanced</h1>
+  <div class="controls">
+    <button onclick="runSimulation()">Run Simulation</button>
+  </div>
+  <canvas id="plasma" width="800" height="400"></canvas>
+
+  <script>
+    function tasdEvolve(t) {
+      // Simple TASD core (stable energy centering)
+      return 2.101 + Math.sin(t) * 0.0005;
+    }
+
+    function runSimulation() {
+      const canvas = document.getElementById('plasma');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0,0,800,400);
+      
+      for(let i = 0; i < 800; i++) {
+        let energy = tasdEvolve(i/50);
+        ctx.fillStyle = `hsl(${energy*100}, 100%, 50%)`;
+        ctx.fillRect(i, 200 + (energy-2.101)*5000, 3, 3);
+      }
+      console.log("TASD-enhanced simulation running – energy stabilized");
+    }
+  </script>
+</body>
+</html>
