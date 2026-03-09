@@ -530,6 +530,7 @@ Select a representation and start the simulation.
       messages.value += 'Pyodide loaded. Initializing TASD-enhanced simulation...\n';
       messages.scrollTop = messages.scrollHeight;
 
+      // TASD Attractor Core (Ψ_universe equation)
       await pyodide.runPythonAsync(`
 import numpy as np
 from sklearn.decomposition import PCA
