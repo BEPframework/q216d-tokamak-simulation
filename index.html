@@ -194,10 +194,8 @@ Select a representation and start the simulation.
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
-
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
   <script>
@@ -260,8 +258,8 @@ Select a representation and start the simulation.
     let hueShift = 0;
     let zoomLevel = 1;
     let particleCount = 0;
-    let N = 15;
     let speed = 1;
+    let frameSkip = 0;
 
     const optionsButton = document.getElementById('optionsButton');
     const optionsDropdown = document.getElementById('optionsDropdown');
@@ -294,6 +292,12 @@ Select a representation and start the simulation.
     let lastPelletIndex = 0;
     let lastMGIIndex = 0;
 
+    function getDynamicParticleCount() {
+      if (frameSkip >= 2) return 350;
+      if (frameSkip >= 1) return 600;
+      return 1000;
+    }
+
     function generatePlasma(representation, energyData = 0) {
       fieldLines.forEach(line => scene.remove(line));
       fieldLines = [];
@@ -308,8 +312,9 @@ Select a representation and start the simulation.
 
         const R = 3;
         const r = 1;
+        const pointTotal = getDynamicParticleCount();
 
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < pointTotal; i++) {
           const theta = Math.random() * 2 * Math.PI;
           const phi = Math.random() * 2 * Math.PI;
           const x = (R + r * Math.cos(phi)) * Math.cos(theta);
@@ -408,6 +413,8 @@ Select a representation and start the simulation.
 
           const geometry = new THREE.BufferGeometry().setFromPoints(points);
           const line = new THREE.Line(geometry, fieldLineMaterial);
+          line.userData.phase = phi;
+          line.userData.index = i;
           fieldLines.push(line);
           scene.add(line);
         }
@@ -416,8 +423,9 @@ Select a representation and start the simulation.
         const verts = [];
         const cols = [];
         const sizes = [];
+        const pointTotal = Math.max(120, Math.floor(getDynamicParticleCount() * 0.2));
 
-        for (let i = 0; i < 200; i++) {
+        for (let i = 0; i < pointTotal; i++) {
           const theta = Math.random() * 2 * Math.PI;
           const phi = Math.random() * 2 * Math.PI;
           const x = (R + r * Math.cos(phi)) * Math.cos(theta);
@@ -449,6 +457,16 @@ Select a representation and start the simulation.
       }
 
       return null;
+    }
+
+    function updateFieldLinesDynamics() {
+      if (currentViewMode !== 'toroidalField') return;
+
+      fieldLines.forEach((line, i) => {
+        line.rotation.z += 0.002 + i * 0.0002;
+        line.rotation.x += 0.001;
+        line.rotation.y = Math.sin(time * 0.5 + i * 0.4) * 0.08;
+      });
     }
 
     function updatePlasma(energyData) {
@@ -804,6 +822,7 @@ mgi_times_data = mgi_times.tolist()
 
     viewModeDropdown.addEventListener('change', () => {
       currentViewMode = viewModeDropdown.value;
+      legend.style.display = 'none';
       updatePlasma(simulationData.energy[Math.min(Math.floor(time / 0.01), simulationData.time.length - 1)] || 2.10198);
       messages.value += `Switched to ${currentViewMode} view mode\n`;
       messages.scrollTop = messages.scrollHeight;
@@ -943,6 +962,7 @@ mgi_times_data = mgi_times.tolist()
         const q = 1.5 + 0.1 * Math.sin(2 * Math.PI * time);
         updatePlasma(energy);
         plasma.rotation.y += 0.01;
+        updateFieldLinesDynamics();
         updateChart();
         updateStats(energy, q);
         messages.value += `Stepped forward to time ${time.toFixed(2)} s\n`;
@@ -960,6 +980,7 @@ mgi_times_data = mgi_times.tolist()
         const q = 1.5 + 0.1 * Math.sin(2 * Math.PI * time);
         updatePlasma(energy);
         plasma.rotation.y -= 0.01;
+        updateFieldLinesDynamics();
         updateChart();
         updateStats(energy, q);
         messages.value += `Stepped backward to time ${time.toFixed(2)} s\n`;
@@ -1121,23 +1142,17 @@ mgi_times_data = mgi_times.tolist()
         lastFrameTime = timestamp;
         fpsDisplay.textContent = `FPS: ${fps}`;
 
-        if (fps < 20 && particleCount > 500 && N > 5) {
-          messages.value += 'Low FPS detected. Reducing particle count for performance...\n';
-          messages.scrollTop = messages.scrollHeight;
-          N = Math.floor(N * 0.8);
-          scene.remove(plasma);
-          plasma = generatePlasma(
-            currentRepresentation,
-            simulationData.energy[Math.min(Math.floor(time / 0.01), simulationData.time.length - 1)] || 2.10198
-          );
-          scene.add(plasma);
-        }
+        if (fps < 15) frameSkip = 2;
+        else if (fps < 20) frameSkip = 1;
+        else frameSkip = 0;
       }
     }
 
     function animate(timestamp = 0) {
       requestAnimationFrame(animate);
       updateFPS(timestamp);
+
+      const shouldSkipHeavyUpdate = frameSkip > 0 && (frameCount % (frameSkip + 1) !== 0);
 
       if (simulationRunning && !simulationPaused && simulationData.time.length) {
         time += 0.016 * speed;
@@ -1161,8 +1176,16 @@ mgi_times_data = mgi_times.tolist()
         const energy = simulationData.energy[index];
         const q = 1.5 + 0.1 * Math.sin(2 * Math.PI * time);
 
-        updatePlasma(energy);
-        plasma.rotation.y += 0.01;
+        if (!shouldSkipHeavyUpdate) {
+          updatePlasma(energy);
+          if (plasma) plasma.rotation.y += 0.01;
+          updateChart();
+          updateStats(energy, q);
+        } else {
+          updateStats(energy, q);
+        }
+
+        updateFieldLinesDynamics();
 
         for (let i = lastPelletIndex; i < simulationData.pelletTimes.length; i++) {
           if (simulationData.pelletTimes[i] <= time) {
@@ -1181,9 +1204,8 @@ mgi_times_data = mgi_times.tolist()
             break;
           }
         }
-
-        updateChart();
-        updateStats(energy, q);
+      } else {
+        updateFieldLinesDynamics();
       }
 
       controls.update();
