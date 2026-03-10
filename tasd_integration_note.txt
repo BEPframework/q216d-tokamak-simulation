@@ -1,0 +1,4 @@
+TASD Integration Note for Q216D Simulation
+This HTML file embeds the full TASD Unified Framework (v1.0) and PsiFilter v2.0.
+The simulation now uses the toroidal attractor for energy transition control.
+All previous artifacts (1–3) are fully compatible.
