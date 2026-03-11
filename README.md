@@ -24,3 +24,11 @@ Licensed under the Apache License, Version 2.0 (see LICENSE file).
 
 ## Preprint Note
 This is the interactive control interface artifact. Full technical preprint with multi-shot analysis and quantum extensions coming in future versions.
+
+## Keywords:
+tokamak
+fusion energy
+plasma physics
+toroidal plasma
+magnetic confinement
+plasma attractor dynamics
